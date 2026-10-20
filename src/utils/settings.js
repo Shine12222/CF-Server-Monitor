@@ -1,3 +1,4 @@
+import { AppError } from './errors.js';
 import {
   DEFAULT_SITE_TITLE,
   JWT_SECRET_MIN_LENGTH,
@@ -69,16 +70,16 @@ const defaults = {
   custom_script: '',
   csp_static: '',
   csp_api: '',
-  display_mode: 'ring',
+  display_mode: 'bar',
   preferred_theme: 'auto',
   default_language: 'auto',
   theme_options: {},
-  is_public: 'true',
+  is_public: 'false',
   show_price: 'true',
   show_expire: 'true',
   show_tf: 'true',
   show_three_net_details: 'true',
-  wss_report_enabled: 'true',
+  wss_report_enabled: 'false',
   wss_report_hours: [...ALL_WSS_REPORT_HOURS],
   frontend_ws_timeout_minutes: '0',
   long_history_points: String(DEFAULT_LONG_HISTORY_POINTS),
@@ -644,9 +645,10 @@ export async function loadSiteSettings(db, options = {}) {
     ).first();
     if (siteRow) {
       const parsed = tryParseJSON(siteRow.value);
-      if (parsed) {
-        siteOptions = parsed;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new Error('Invalid site_options');
       }
+      siteOptions = parsed;
     }
 
     if (hasMissingFields(siteOptions, SITE_FIELDS)) {
@@ -677,6 +679,8 @@ export async function loadSiteSettings(db, options = {}) {
     result.traffic_alert_threshold = normalizeTrafficAlertThreshold(result.traffic_alert_threshold);
   } catch (e) {
     console.error('加载站点设置失败:', e);
+    // Never replace access-control settings with defaults after a D1 failure.
+    throw new AppError('Security configuration unavailable', 503);
   }
 
   cachedSiteSettings = result;
