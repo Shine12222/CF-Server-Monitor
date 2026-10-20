@@ -181,7 +181,7 @@ async function fetchHistoryData(env, request, id, hours, columns, sys = null) {
   return createSuccessResponse(sanitizedData, { 'X-Cache': 'MISS' });
 }
 
-export default {
+const worker = {
   async fetch(request, env, ctx) {
     setDebug(env.DEBUG);
 
@@ -503,6 +503,21 @@ export default {
         await checkExpiringServers(env.DB);
         debug('[Cron DEBUG] 服务器到期检测完成');
       }
+    }
+  }
+};
+
+export default {
+  ...worker,
+  async fetch(request, env, ctx) {
+    try {
+      return await worker.fetch(request, env, ctx);
+    } catch (error) {
+      return applyCors(
+        createErrorResponse(error),
+        request,
+        getCorsAllowedOrigins(env)
+      );
     }
   }
 };
